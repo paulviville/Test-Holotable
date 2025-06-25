@@ -30,30 +30,18 @@ scene.add(gridHelper);
 const axesHelper = new THREE.AxesHelper(10);
 scene.add(axesHelper);
 
-
-const box0 = new THREE.Mesh(
-	new THREE.BoxGeometry(2, 2, 2),
-	new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true})
+const box0 = new THREE.LineSegments(
+	new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
+	new THREE.LineBasicMaterial({color: 0xff0000})
 );
 scene.add(box0);
 
-const box1 = new THREE.Mesh(
-	new THREE.BoxGeometry(2, 2, 2),
-	new THREE.MeshBasicMaterial({color: 0x0000ff, wireframe: true})
+const box1 = new THREE.LineSegments(
+	new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)),
+	new THREE.LineBasicMaterial({color: 0x0000ff})
 );
 scene.add(box1);
 
-const translate = new THREE.Vector3(0, 0, 0);
-const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4 * 0);
-// const scalingFactor = 2;
-const scale = new THREE.Vector3(1, 1, 1);
-
-const scaleFactor0 = Math.max(scale.x, Math.max(scale.y, scale.z));
-const scale0 = scale.clone().multiplyScalar(1 / scaleFactor0);
-const scale1 = new THREE.Vector3(1, 1, 1).multiplyScalar(scaleFactor0);
-
-const transform0 = new THREE.Matrix4();
-transform0.compose(new THREE.Vector3(), new THREE.Quaternion(), scale0);
 
 
 const renderer = new THREE.WebGLRenderer({canvas});
@@ -75,10 +63,6 @@ const sphere1 = new THREE.Mesh(geometry, material1);
 scene.add(sphere0);
 scene.add(sphere1);
 
-// const position = new THREE.Vector3(1, 1, 1);
-// sphere0.position.copy(position);
-// transform.compose(translate, rotation, scale1);
-// sphere1.position.copy(position).applyMatrix4(transform);
 
 
 const gui = new GUI();
@@ -116,8 +100,7 @@ function updateView ( ) {
 }
 
 
-function normalize ( x, y, z ) {
-	const vector = new THREE.Vector3(x, y, z);
+function normalizeLockedX ( vector ) {
 	const length = vector.length();
 	
 	const lengthRemain = Math.sqrt(length - vector.x*vector.x);
@@ -129,8 +112,15 @@ function normalize ( x, y, z ) {
 		vector.y = lengthRemain; 
 		vector.z = 0; 
 	}
+}
 
-	return vector;
+function updateAxes ( a0, a1, a2 ) {
+	const axis = new THREE.Vector3(guiParams.axis[a0], guiParams.axis[a1], guiParams.axis[a2])
+	normalizeLockedX(axis);
+	guiParams.axis[a0] = axis.x;
+	guiParams.axis[a1] = axis.y;
+	guiParams.axis[a2] = axis.z;
+	updateView();
 }
 
 const headFolder = gui.addFolder("head");
@@ -143,31 +133,16 @@ translateFolder.add(guiParams.translate, "x").min(-5.0).max(5.0).step(0.05).onCh
 translateFolder.add(guiParams.translate, "y").min(-5.0).max(5.0).step(0.05).onChange(updateView);
 translateFolder.add(guiParams.translate, "z").min(-5.0).max(5.0).step(0.05).onChange(updateView);
 const rotateFolder = gui.addFolder("rotate");
-rotateFolder.add(guiParams.axis, "x").min(-1.0).max(1.0).step(0.01).onChange(() => {
-	const axis = guiParams.axis;
-	axis.copy(normalize(axis.x, axis.y, axis.z));
-	guiParams.axis.set(axis.x, axis.y, axis.z);
-	updateView();
-}).listen();
-rotateFolder.add(guiParams.axis, "y").min(-1.0).max(1.0).step(0.01).onChange(() => {
-	const axis = guiParams.axis;
-	axis.copy(normalize(axis.y, axis.x, axis.z));
-	guiParams.axis.set(axis.y, axis.x, axis.z);
-	updateView();
-}).listen();
-rotateFolder.add(guiParams.axis, "z").min(-1.0).max(1.0).step(0.01).onChange(() => {
-	const axis = guiParams.axis;
-	axis.copy(normalize(axis.z, axis.y, axis.x));
-	guiParams.axis.set(axis.z, axis.y, axis.x);
-	updateView();
-}).listen();
+rotateFolder.add(guiParams.axis, "x").min(-1.0).max(1.0).step(0.01).onChange(() => { updateAxes("x", "y", "z") }).listen();
+rotateFolder.add(guiParams.axis, "y").min(-1.0).max(1.0).step(0.01).onChange(() => { updateAxes("y", "z", "x") }).listen();
+rotateFolder.add(guiParams.axis, "z").min(-1.0).max(1.0).step(0.01).onChange(() => { updateAxes("z", "x", "y") }).listen();
 rotateFolder.add(guiParams, "angle").min(-Math.PI).max(Math.PI).step(0.05).onChange(updateView);
 const scaleFolder = gui.addFolder("scale");
 scaleFolder.add(guiParams.scale, "x").min(0.1).max(5.0).step(0.05).onChange(updateView);
 scaleFolder.add(guiParams.scale, "y").min(0.1).max(5.0).step(0.05).onChange(updateView);
 scaleFolder.add(guiParams.scale, "z").min(0.1).max(5.0).step(0.05).onChange(updateView);
 
-
+updateView();
 
 function animate() {
 	renderer.render( scene, camera );
