@@ -6,7 +6,6 @@ import { GUI } from './three/libs/lil-gui.module.min.js';
 
 // const displayWindow = window.open('./display.html', "", "width=800, height=800");
 
-// displayWindow.body.title("debug window")
 // displayWindow.resizeTo(200, 200)
 
 
@@ -24,23 +23,24 @@ scene.add(pointLight0);
 
 const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 50 );
 camera.position.set( 2, 2, 6 );
-const gridHelper = new THREE.GridHelper(10, 10);
-// gridHelper.lookAt(new THREE.Vector3(0, 1, 0));
-scene.add(gridHelper);
-const axesHelper = new THREE.AxesHelper(10);
-scene.add(axesHelper);
+const camera0 = new THREE.PerspectiveCamera( 50, 1, 0.01, 50 );
+const camera1 = new THREE.PerspectiveCamera( 50, 1, 0.01, 50 );
 
-const box0 = new THREE.LineSegments(
+
+const hologramBox = new THREE.LineSegments(
 	new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
 	new THREE.LineBasicMaterial({color: 0xff0000})
 );
-scene.add(box0);
 
-const box1 = new THREE.LineSegments(
+const viewBox = new THREE.LineSegments(
 	new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
 	new THREE.LineBasicMaterial({color: 0x0000ff})
 );
-scene.add(box1);
+
+const simulationBox = new THREE.LineSegments(
+	new THREE.EdgesGeometry(new THREE.BoxGeometry(10, 10, 10)),
+	new THREE.LineBasicMaterial({color: 0x000000})
+);
 
 
 
@@ -53,14 +53,12 @@ const orbitControls = new OrbitControls(camera, renderer.domElement);
 
 
 
-
 const material0 = new THREE.MeshBasicMaterial({color: 0xFF0000});
 const material1 = new THREE.MeshBasicMaterial({color: 0x0000FF});
 const geometry = new THREE.SphereGeometry(0.1);
 const sphere0 = new THREE.Mesh(geometry, material0);
 const sphere1 = new THREE.Mesh(geometry, material1);
 
-scene.add(sphere0);
 scene.add(sphere1);
 
 console.log(new THREE.BoxGeometry(1, 1, 1));
@@ -76,13 +74,34 @@ const cameraZ = new THREE.PerspectiveCamera();
 const cameraHelperX = new THREE.CameraHelper(cameraX);
 const cameraHelperY = new THREE.CameraHelper(cameraY);
 const cameraHelperZ = new THREE.CameraHelper(cameraZ);
+cameraHelperX.visible = false;
+cameraHelperY.visible = false;
+cameraHelperZ.visible = false;
 
-scene.add(cameraHelperX);
-scene.add(cameraHelperY);
-scene.add(cameraHelperZ);
+
+const hologramScene = new THREE.Scene();
+hologramScene.background = new THREE.Color(0xfff0f0);
+hologramScene.add(hologramBox);
+hologramScene.add(sphere0);
+
+const simulationScene = new THREE.Scene();
+simulationScene.background = new THREE.Color(0xf0f0ff);
+simulationScene.add(viewBox);
+simulationScene.add(simulationBox);
+simulationScene.add(sphere1);
+simulationScene.add(cameraHelperX);
+simulationScene.add(cameraHelperY);
+simulationScene.add(cameraHelperZ);
+
+const gridHelper = new THREE.GridHelper(10, 10);
+gridHelper.position.set(0, -5, 0);
+// gridHelper.lookAt(new THREE.Vector3(0, 1, 0));
+simulationScene.add(gridHelper);
+const axesHelper = new THREE.AxesHelper(10);
+simulationScene.add(axesHelper);
 
 function computeCameraMatrices ( ) {
-	const transform = box1.matrix.clone();
+	const transform = viewBox.matrix.clone();
 	const planeXt = planeX.map(corner => corner.clone().applyMatrix4(transform));
 	const planeYt = planeY.map(corner => corner.clone().applyMatrix4(transform));
 	const planeZt = planeZ.map(corner => corner.clone().applyMatrix4(transform));
@@ -170,6 +189,11 @@ const guiParams = {
 	scale: new THREE.Vector3(1, 1, 1),
 	axis: new THREE.Vector3(1, 0, 0),
 	angle: 0,
+	helpers: () => {
+		cameraHelperX.visible = !cameraHelperX.visible;
+		cameraHelperY.visible = !cameraHelperY.visible;
+		cameraHelperZ.visible = !cameraHelperZ.visible;
+	}
 }
 
 function updateView ( ) {
@@ -182,23 +206,26 @@ function updateView ( ) {
 
 	const rotate = new THREE.Quaternion().setFromAxisAngle(guiParams.axis, guiParams.angle);
 
-	box0.scale.copy(scale0);
+	hologramBox.scale.copy(scale0);
 
 
-	box1.position.copy(translate)
-	box1.scale.copy(scale)
-	box1.quaternion.copy(rotate);
+	viewBox.position.copy(translate)
+	viewBox.scale.copy(scale)
+	viewBox.quaternion.copy(rotate);
 
 	const position = guiParams.head.clone();
 	sphere0.position.copy(position);
 
-	console.log(box1.matrix)
+	console.log(viewBox.matrix)
 
 	const transform = new THREE.Matrix4();
 	transform.compose(translate, rotate, scale1);
 	sphere1.position.copy(position).applyMatrix4(transform);
 
-
+	const target = new THREE.Vector3().applyMatrix4(transform);
+	camera1.position.copy(sphere1.position);
+	camera1.lookAt(target);
+	// camera1.lookAt()
 
 	computeCameraMatrices();
 }
@@ -245,38 +272,88 @@ const scaleFolder = gui.addFolder("scale");
 scaleFolder.add(guiParams.scale, "x").min(0.1).max(5.0).step(0.05).onChange(updateView);
 scaleFolder.add(guiParams.scale, "y").min(0.1).max(5.0).step(0.05).onChange(updateView);
 scaleFolder.add(guiParams.scale, "z").min(0.1).max(5.0).step(0.05).onChange(updateView);
-
+const helpersFolder = gui.addFolder("helpers");
+helpersFolder.add(guiParams, "helpers").name("show helpers");
 updateView();
 
 function animate() {
-	renderer.render( scene, camera );
+	renderer.render( hologramScene, camera );
 }
 
 renderer.setAnimationLoop( animate );
 
-const displayWindow = new DisplayWindow({
-	onLoad: ( canvas ) => {
-		console.log(canvas);
-		const renderer = new THREE.WebGLRenderer({canvas});
-		// renderer.autoClear = false;
-		// renderer.setPixelRatio( window.devicePixelRatio );
-		// renderer.setSize( window.innerWidth, window.innerHeight );
 
-		const orbitControls = new OrbitControls(camera, renderer.domElement);
+let renderer0;
+
+const displayWindow = new DisplayWindow(
+	"simulation view",	
+	{
+		onLoad: ( window, canvas ) => {
+			renderer0 = new THREE.WebGLRenderer({canvas});
+			camera0.position.set( 5, 5, 10 );
+
+			const orbitControls = new OrbitControls(camera0, renderer0.domElement);
 
 
-		function animate() {
-			renderer.render( scene, camera );
+			function animate() {
+				renderer0.render( simulationScene, camera0 );
+			}
+			// const gui = new GUI();
+			
+
+			renderer0.setAnimationLoop( animate );
+
+		},
+		onResize: ( width, height ) => {
+			camera0.aspect = width / height;
+			camera0.updateProjectionMatrix();
+
+			renderer0.setSize(width, height);
 		}
-		
-		renderer.setAnimationLoop( animate );
-
 	}
-});
+);
 console.log(displayWindow)
 
-// displayWindow.open();
+displayWindow.open();
+
+
+// camera1.position.set( 5, 5, 10 );
+
+let renderer1;
+
+const firstPersonSimulationWindow = new DisplayWindow(
+	"first person simulation",
+	{
+		onLoad: ( window, canvas ) => {
+			renderer1 = new THREE.WebGLRenderer({canvas});
+
+			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+
+
+			function animate() {
+				renderer1.render( simulationScene, camera1 );
+			}
+			// const gui = new GUI();
+			
+
+			renderer1.setAnimationLoop( animate );
+
+		},
+
+		onResize: ( width, height ) => {
+			camera1.aspect = width / height;
+			camera1.updateProjectionMatrix();
+
+			renderer1.setSize(width, height);
+		}
+	}
+);
+
+firstPersonSimulationWindow.open();
+
+updateView();
 
 window.addEventListener("beforeunload", () => {
 	displayWindow.close();
+	firstPersonSimulationWindow.close();
 });

@@ -1,12 +1,16 @@
+import { GUI } from './three/libs/lil-gui.module.min.js'; 
+
 export default class DisplayWindow {
 	#window;
+	#title;
 	#canvas;
 
 	#callbacks;
 
-	constructor ( callbacks ) {
+	constructor ( title, callbacks ) {
 		console.log(`DisplayWindow - constructor`);
 
+		this.#title = title;
 		this.#callbacks = callbacks;
 	}
 
@@ -18,18 +22,25 @@ export default class DisplayWindow {
 		this.#canvas.width = this.#window.innerWidth;
 		this.#canvas.height = this.#window.innerHeight;
 
-		this.#callbacks?.onLoad(this.#canvas);
+		this.#callbacks.onLoad?.(this.#window, this.#canvas);
+
+		this.#window.onresize = this.#onResize.bind(this);
+		this.#window.document.title = this.#title;
 	}
 
 	#onResize ( ) {
 		console.log(`DisplayWindow - #onResize`);
 		
+		this.#canvas.width = this.#window.innerWidth;
+		this.#canvas.height = this.#window.innerHeight;
+
+		this.#callbacks.onResize?.(this.#window.innerWidth, this.#window.innerHeight);
 	}
 
-	resize ( width, height ) {
-		console.log(`DisplayWindow - resize`);
+	// resize ( width, height ) {
+	// 	console.log(`DisplayWindow - resize`);
 
-	}
+	// }
 
 	open ( parameters = "width=500, height=500") {
 		console.log(`DisplayWindow - open`);
