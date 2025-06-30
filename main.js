@@ -13,13 +13,8 @@ import { GUI } from './three/libs/lil-gui.module.min.js';
 const canvas = document.createElement('canvas');
 document.body.appendChild(canvas)
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xfff9f9);
 
-let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-let pointLight0 = new THREE.PointLight(0xffffff, 100);
-pointLight0.position.set(5,4,5);
-scene.add(pointLight0);
+
 
 const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 50 );
 camera.position.set( 2, 2, 6 );
@@ -59,7 +54,7 @@ const geometry = new THREE.SphereGeometry(0.1);
 const sphere0 = new THREE.Mesh(geometry, material0);
 const sphere1 = new THREE.Mesh(geometry, material1);
 
-scene.add(sphere1);
+// const torus = new 
 
 console.log(new THREE.BoxGeometry(1, 1, 1));
 
@@ -70,6 +65,9 @@ const planeZ = [new THREE.Vector3(-0.5, -0.5, 0.5), new THREE.Vector3(0.5, -0.5,
 const cameraX = new THREE.PerspectiveCamera();
 const cameraY = new THREE.PerspectiveCamera();
 const cameraZ = new THREE.PerspectiveCamera();
+cameraX.matrixAutoUpdate = false;
+cameraY.matrixAutoUpdate = false;
+cameraZ.matrixAutoUpdate = false;
 
 const cameraHelperX = new THREE.CameraHelper(cameraX);
 const cameraHelperY = new THREE.CameraHelper(cameraY);
@@ -92,6 +90,16 @@ simulationScene.add(sphere1);
 simulationScene.add(cameraHelperX);
 simulationScene.add(cameraHelperY);
 simulationScene.add(cameraHelperZ);
+let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+simulationScene.add(ambientLight);
+let pointLight0 = new THREE.PointLight(0xffffff, 100);
+pointLight0.position.set(5,4,5);
+simulationScene.add(pointLight0);
+
+const torus0 = new THREE.Mesh(new THREE.TorusKnotGeometry( 0.4, 0.08, 95, 20 ), new THREE.MeshLambertMaterial({color: 0x33AA33}));
+const torus1 = new THREE.Mesh(new THREE.TorusKnotGeometry( 4, 0.5, 95, 20 ), new THREE.MeshLambertMaterial({color: 0x33AAAA}));
+simulationScene.add(torus0);
+simulationScene.add(torus1);
 
 const gridHelper = new THREE.GridHelper(10, 10);
 gridHelper.position.set(0, -5, 0);
@@ -101,7 +109,16 @@ const axesHelper = new THREE.AxesHelper(10);
 simulationScene.add(axesHelper);
 
 function computeCameraMatrices ( ) {
-	const transform = viewBox.matrix.clone();
+
+	const position = guiParams.head.clone();
+	sphere0.position.copy(position);
+
+
+	const transform = new THREE.Matrix4();
+	transform.compose(viewBox.position, viewBox.quaternion, viewBox.scale);
+	// transform.compose(translate, rotate, scale1);
+
+	// const transform = viewBox.matrix.clone();
 	const planeXt = planeX.map(corner => corner.clone().applyMatrix4(transform));
 	const planeYt = planeY.map(corner => corner.clone().applyMatrix4(transform));
 	const planeZt = planeZ.map(corner => corner.clone().applyMatrix4(transform));
@@ -117,10 +134,16 @@ function computeCameraMatrices ( ) {
 	console.log(matricesX);
 
 	cameraX.matrixWorld.copy(matricesX.view.clone().invert());
-	cameraX.projectionMatrixInverse.copy(matricesX.projection.clone().invert());
 	cameraY.matrixWorld.copy(matricesY.view.clone().invert());
-	cameraY.projectionMatrixInverse.copy(matricesY.projection.clone().invert());
 	cameraZ.matrixWorld.copy(matricesZ.view.clone().invert());
+	cameraX.matrixWorldInverse.copy(matricesX.view.clone());
+	cameraY.matrixWorldInverse.copy(matricesY.view.clone());
+	cameraZ.matrixWorldInverse.copy(matricesZ.view.clone());
+	cameraX.projectionMatrix.copy(matricesX.projection.clone());
+	cameraY.projectionMatrix.copy(matricesY.projection.clone());
+	cameraZ.projectionMatrix.copy(matricesZ.projection.clone());
+	cameraX.projectionMatrixInverse.copy(matricesX.projection.clone().invert());
+	cameraY.projectionMatrixInverse.copy(matricesY.projection.clone().invert());
 	cameraZ.projectionMatrixInverse.copy(matricesZ.projection.clone().invert());
 	cameraHelperX.update();
 	cameraHelperY.update();
@@ -351,9 +374,106 @@ const firstPersonSimulationWindow = new DisplayWindow(
 
 firstPersonSimulationWindow.open();
 
+let rendererX;
+const cameraXWindow = new DisplayWindow(
+	"view X",
+	{
+		onLoad: ( window, canvas ) => {
+			rendererX = new THREE.WebGLRenderer({canvas});
+
+			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+
+
+			function animate() {
+				rendererX.render( simulationScene, cameraX );
+			}
+			// const gui = new GUI();
+			
+
+			rendererX.setAnimationLoop( animate );
+
+		},
+
+		onResize: ( width, height ) => {
+			// camera1.aspect = width / height;
+			// camera1.updateProjectionMatrix();
+
+			rendererX.setSize(width, height);
+		}
+	}
+);
+
+cameraXWindow.open();
+
+let rendererY;
+const cameraYWindow = new DisplayWindow(
+	"view Y",
+	{
+		onLoad: ( window, canvas ) => {
+			rendererY = new THREE.WebGLRenderer({canvas});
+
+			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+
+
+			function animate() {
+				rendererY.render( simulationScene, cameraY );
+			}
+			// const gui = new GUI();
+			
+
+			rendererY.setAnimationLoop( animate );
+
+		},
+
+		onResize: ( width, height ) => {
+			// camera1.aspect = width / height;
+			// camera1.updateProjectionMatrix();
+
+			rendererY.setSize(width, height);
+		}
+	}
+);
+
+cameraYWindow.open();
+
+
+let rendererZ;
+const cameraZWindow = new DisplayWindow(
+	"view Z",
+	{
+		onLoad: ( window, canvas ) => {
+			rendererZ = new THREE.WebGLRenderer({canvas});
+
+			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+
+
+			function animate() {
+				rendererZ.render( simulationScene, cameraZ );
+			}
+			// const gui = new GUI();
+			
+
+			rendererZ.setAnimationLoop( animate );
+
+		},
+
+		onResize: ( width, height ) => {
+			// camera1.aspect = width / height;
+			// camera1.updateProjectionMatrix();
+
+			rendererZ.setSize(width, height);
+		}
+	}
+);
+
+cameraZWindow.open();
+
 updateView();
 
 window.addEventListener("beforeunload", () => {
 	displayWindow.close();
 	firstPersonSimulationWindow.close();
+	cameraXWindow.close();
+	cameraYWindow.close();
+	cameraZWindow.close();
 });
