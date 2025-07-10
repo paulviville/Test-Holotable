@@ -18,7 +18,8 @@ let fpv = false;
 
 const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 50 );
 camera.position.set( 2, 2, 6 );
-const cameraFPV = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 50 );
+const cameraFPV = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 5 );
+const dummyFPV = new THREE.PerspectiveCamera( 50, 1.6, 0.01, 0.35 );
 const camera0 = new THREE.PerspectiveCamera( 50, 1, 0.01, 50 );
 const camera1 = new THREE.PerspectiveCamera( 50, 1, 0.01, 50 );
 
@@ -77,10 +78,12 @@ cameraHelperX.visible = false;
 cameraHelperY.visible = false;
 cameraHelperZ.visible = false;
 
+const cameraHelperFPV = new THREE.CameraHelper(dummyFPV);
 
 const hologramScene = new THREE.Scene();
 hologramScene.background = new THREE.Color(0xfff0f0);
 hologramScene.add(hologramBox);
+hologramScene.add(cameraHelperFPV);
 hologramScene.add(sphere0);
 
 const simulationScene = new THREE.Scene();
@@ -111,19 +114,19 @@ simulationScene.add(axesHelper);
 
 
 
-const renderTargetX = new THREE.WebGLRenderTarget(1024, 1024, {
+const renderTargetX = new THREE.WebGLRenderTarget(512, 512, {
 	minFilter: THREE.LinearFilter,
 	magFilter: THREE.LinearFilter,
 	format: THREE.RGBAFormat
 });
 
-const renderTargetY = new THREE.WebGLRenderTarget(1024, 1024, {
+const renderTargetY = new THREE.WebGLRenderTarget(512, 512, {
 	minFilter: THREE.LinearFilter,
 	magFilter: THREE.LinearFilter,
 	format: THREE.RGBAFormat
 });
 
-const renderTargetZ = new THREE.WebGLRenderTarget(1024, 1024, {
+const renderTargetZ = new THREE.WebGLRenderTarget(512, 512, {
 	minFilter: THREE.LinearFilter,
 	magFilter: THREE.LinearFilter,
 	format: THREE.RGBAFormat
@@ -190,13 +193,11 @@ function computeCameraMatrices ( ) {
 	const ssX = computeScreenSpace(planeXt);
 	const ssY = computeScreenSpace(planeYt);
 	const ssZ = computeScreenSpace(planeZt);
-	console.log(planeXt, ssX)
 
 	const eye = sphere1.position.clone();
 	const matricesX = computeMatrix(eye, planeXt, ssX, guiParams.scale.x);
 	const matricesY = computeMatrix(eye, planeYt, ssY, guiParams.scale.y);
 	const matricesZ = computeMatrix(eye, planeZt, ssZ, guiParams.scale.z);
-	console.log(matricesX);
 
 	cameraX.matrixWorld.copy(matricesX.view.clone().invert());
 	cameraY.matrixWorld.copy(matricesY.view.clone().invert());
@@ -241,7 +242,7 @@ function computeMatrix ( eye, screen, ss, scale = 1 ) {
 	// const farCP = 50.0;
 	const ND = nearCP / dist;
 
-	console.log(dist, nearCP, farCP, ND)
+	// console.log(dist, nearCP, farCP, ND)
 
 	const l = ss[0].dot(eyes[0]) * ND;
 	const r = ss[0].dot(eyes[1]) * ND;
@@ -265,7 +266,7 @@ function computeMatrix ( eye, screen, ss, scale = 1 ) {
 	);
 	view.multiplyMatrices(ssRotation, E);
 
-	console.log(eyes, view, projection, l, r, b, t)
+	// console.log(eyes, view, projection, l, r, b, t)
 
 	return {projection, view};
 }
@@ -304,8 +305,11 @@ function updateView ( ) {
 
 	const position = guiParams.head.clone();
 	sphere0.position.copy(position);
-
-	console.log(viewBox.matrix)
+	cameraFPV.position.copy(sphere0.position);
+	cameraFPV.lookAt(0, 0, 0);
+	dummyFPV.position.copy(sphere0.position);
+	dummyFPV.lookAt(0, 0, 0);
+	// console.log(viewBox.matrix)
 
 	const transform = new THREE.Matrix4();
 	transform.compose(translate, rotate, scale1);
@@ -316,8 +320,7 @@ function updateView ( ) {
 	camera1.lookAt(target);
 	// camera1.lookAt()
 
-	cameraFPV.position.copy(sphere0.position);
-	cameraFPV.lookAt(0, 0, 0);
+
 
 	computeCameraMatrices();
 }
@@ -353,13 +356,13 @@ headFolder.add(guiParams.head, "z").min(-5.0).max(5.0).step(0.05).onChange(updat
 headFolder.add(guiParams, "fpv");
 
 const translateFolder = gui.addFolder("translate");
-translateFolder.add(guiParams.translate, "x").min(-5.0).max(5.0).step(0.01).onChange(updateView);
-translateFolder.add(guiParams.translate, "y").min(-5.0).max(5.0).step(0.01).onChange(updateView);
-translateFolder.add(guiParams.translate, "z").min(-5.0).max(5.0).step(0.01).onChange(updateView);
+translateFolder.add(guiParams.translate, "x").min(-5.0).max(5.0).step(0.0025).onChange(updateView);
+translateFolder.add(guiParams.translate, "y").min(-5.0).max(5.0).step(0.0025).onChange(updateView);
+translateFolder.add(guiParams.translate, "z").min(-5.0).max(5.0).step(0.0025).onChange(updateView);
 const rotateFolder = gui.addFolder("rotate");
-rotateFolder.add(guiParams.axis, "x").min(-1.0).max(1.0).step(0.01).onChange(() => { updateAxes("x", "y", "z") }).listen();
-rotateFolder.add(guiParams.axis, "y").min(-1.0).max(1.0).step(0.01).onChange(() => { updateAxes("y", "z", "x") }).listen();
-rotateFolder.add(guiParams.axis, "z").min(-1.0).max(1.0).step(0.01).onChange(() => { updateAxes("z", "x", "y") }).listen();
+rotateFolder.add(guiParams.axis, "x").min(-1.0).max(1.0).step(0.0025).onChange(() => { updateAxes("x", "y", "z") }).listen();
+rotateFolder.add(guiParams.axis, "y").min(-1.0).max(1.0).step(0.0025).onChange(() => { updateAxes("y", "z", "x") }).listen();
+rotateFolder.add(guiParams.axis, "z").min(-1.0).max(1.0).step(0.0025).onChange(() => { updateAxes("z", "x", "y") }).listen();
 rotateFolder.add(guiParams, "angle").min(-Math.PI).max(Math.PI).step(0.05).onChange(updateView);
 const scaleFolder = gui.addFolder("scale");
 scaleFolder.add(guiParams.scale, "x").min(0.1).max(5.0).step(0.05).onChange(updateView);
@@ -370,10 +373,17 @@ helpersFolder.add(guiParams, "helpers").name("show helpers");
 updateView();
 
 function animate() {
-	if(guiParams.fpv)
+	if(guiParams.fpv) {
+		cameraHelperFPV.visible = false;
 		renderer.render( hologramScene, cameraFPV );
+
+	}
 	else 
+	{
+		cameraHelperFPV.visible = true;
 		renderer.render( hologramScene, camera );
+
+	}
 	
 	renderer.setRenderTarget(renderTargetX);
 	renderer.render( simulationScene, cameraX );
@@ -488,97 +498,97 @@ firstPersonSimulationWindow.open();
 
 // firstPersonHologramWindow.open();
 
-let rendererX;
-const cameraXWindow = new DisplayWindow(
-	"view X",
-	{
-		onLoad: ( window, canvas ) => {
-			rendererX = new THREE.WebGLRenderer({canvas});
+// let rendererX;
+// const cameraXWindow = new DisplayWindow(
+// 	"view X",
+// 	{
+// 		onLoad: ( window, canvas ) => {
+// 			rendererX = new THREE.WebGLRenderer({canvas});
 
-			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+// 			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
 
 
-			function animate() {
-				rendererX.render( simulationScene, cameraX );
-			}
-			// const gui = new GUI();
+// 			function animate() {
+// 				rendererX.render( simulationScene, cameraX );
+// 			}
+// 			// const gui = new GUI();
 			
 
-			rendererX.setAnimationLoop( animate );
+// 			rendererX.setAnimationLoop( animate );
 
-		},
+// 		},
 
-		onResize: ( width, height ) => {
-			// camera1.aspect = width / height;
-			// camera1.updateProjectionMatrix();
+// 		onResize: ( width, height ) => {
+// 			// camera1.aspect = width / height;
+// 			// camera1.updateProjectionMatrix();
 
-			rendererX.setSize(width, height);
-		}
-	}
-);
+// 			rendererX.setSize(width, height);
+// 		}
+// 	}
+// );
 
-// cameraXWindow.open();
+// // cameraXWindow.open();
 
-let rendererY;
-const cameraYWindow = new DisplayWindow(
-	"view Y",
-	{
-		onLoad: ( window, canvas ) => {
-			rendererY = new THREE.WebGLRenderer({canvas});
+// let rendererY;
+// const cameraYWindow = new DisplayWindow(
+// 	"view Y",
+// 	{
+// 		onLoad: ( window, canvas ) => {
+// 			rendererY = new THREE.WebGLRenderer({canvas});
 
-			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+// 			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
 
 
-			function animate() {
-				rendererY.render( simulationScene, cameraY );
-			}
-			// const gui = new GUI();
+// 			function animate() {
+// 				rendererY.render( simulationScene, cameraY );
+// 			}
+// 			// const gui = new GUI();
 			
 
-			rendererY.setAnimationLoop( animate );
+// 			rendererY.setAnimationLoop( animate );
 
-		},
+// 		},
 
-		onResize: ( width, height ) => {
-			// camera1.aspect = width / height;
-			// camera1.updateProjectionMatrix();
+// 		onResize: ( width, height ) => {
+// 			// camera1.aspect = width / height;
+// 			// camera1.updateProjectionMatrix();
 
-			rendererY.setSize(width, height);
-		}
-	}
-);
+// 			rendererY.setSize(width, height);
+// 		}
+// 	}
+// );
 
-// cameraYWindow.open();
-
-
-let rendererZ;
-const cameraZWindow = new DisplayWindow(
-	"view Z",
-	{
-		onLoad: ( window, canvas ) => {
-			rendererZ = new THREE.WebGLRenderer({canvas});
-
-			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+// // cameraYWindow.open();
 
 
-			function animate() {
-				rendererZ.render( simulationScene, cameraZ );
-			}
-			// const gui = new GUI();
+// let rendererZ;
+// const cameraZWindow = new DisplayWindow(
+// 	"view Z",
+// 	{
+// 		onLoad: ( window, canvas ) => {
+// 			rendererZ = new THREE.WebGLRenderer({canvas});
+
+// 			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+
+
+// 			function animate() {
+// 				rendererZ.render( simulationScene, cameraZ );
+// 			}
+// 			// const gui = new GUI();
 			
 
-			rendererZ.setAnimationLoop( animate );
+// 			rendererZ.setAnimationLoop( animate );
 
-		},
+// 		},
 
-		onResize: ( width, height ) => {
-			// camera1.aspect = width / height;
-			// camera1.updateProjectionMatrix();
+// 		onResize: ( width, height ) => {
+// 			// camera1.aspect = width / height;
+// 			// camera1.updateProjectionMatrix();
 
-			rendererZ.setSize(width, height);
-		}
-	}
-);
+// 			rendererZ.setSize(width, height);
+// 		}
+// 	}
+// );
 
 // cameraZWindow.open();
 
