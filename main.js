@@ -14,10 +14,11 @@ const canvas = document.createElement('canvas');
 document.body.appendChild(canvas)
 const scene = new THREE.Scene();
 
-
+let fpv = false;
 
 const camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 50 );
 camera.position.set( 2, 2, 6 );
+const cameraFPV = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.01, 50 );
 const camera0 = new THREE.PerspectiveCamera( 50, 1, 0.01, 50 );
 const camera1 = new THREE.PerspectiveCamera( 50, 1, 0.01, 50 );
 
@@ -96,8 +97,8 @@ let pointLight0 = new THREE.PointLight(0xffffff, 100);
 pointLight0.position.set(5,4,5);
 simulationScene.add(pointLight0);
 
-const torus0 = new THREE.Mesh(new THREE.TorusKnotGeometry( 0.4, 0.08, 95, 20 ), new THREE.MeshLambertMaterial({color: 0x33AA33}));
-const torus1 = new THREE.Mesh(new THREE.TorusKnotGeometry( 4, 0.5, 95, 20 ), new THREE.MeshLambertMaterial({color: 0x33AAAA}));
+const torus0 = new THREE.Mesh(new THREE.TorusKnotGeometry( 0.4, 0.08, 95, 20 ), new THREE.MeshLambertMaterial({color: 0x33AA33, side: THREE.DoubleSide}));
+const torus1 = new THREE.Mesh(new THREE.TorusKnotGeometry( 4, 0.5, 95, 20 ), new THREE.MeshLambertMaterial({color: 0x33AAAA, side: THREE.DoubleSide}));
 simulationScene.add(torus0);
 simulationScene.add(torus1);
 
@@ -107,6 +108,70 @@ gridHelper.position.set(0, -5, 0);
 simulationScene.add(gridHelper);
 const axesHelper = new THREE.AxesHelper(10);
 simulationScene.add(axesHelper);
+
+
+
+const renderTargetX = new THREE.WebGLRenderTarget(1024, 1024, {
+	minFilter: THREE.LinearFilter,
+	magFilter: THREE.LinearFilter,
+	format: THREE.RGBAFormat
+});
+
+const renderTargetY = new THREE.WebGLRenderTarget(1024, 1024, {
+	minFilter: THREE.LinearFilter,
+	magFilter: THREE.LinearFilter,
+	format: THREE.RGBAFormat
+});
+
+const renderTargetZ = new THREE.WebGLRenderTarget(1024, 1024, {
+	minFilter: THREE.LinearFilter,
+	magFilter: THREE.LinearFilter,
+	format: THREE.RGBAFormat
+});
+
+
+const planeXMesh = new THREE.Mesh(
+	new THREE.PlaneGeometry(1, 1),
+	new THREE.MeshBasicMaterial({
+		map: renderTargetX.texture,
+		side: THREE.DoubleSide,
+	}),
+);
+
+const planeYMesh = new THREE.Mesh(
+	new THREE.PlaneGeometry(1, 1),
+	new THREE.MeshBasicMaterial({
+		map: renderTargetY.texture,
+		side: THREE.DoubleSide,
+	}),
+);
+
+const planeZMesh = new THREE.Mesh(
+	new THREE.PlaneGeometry(1, 1),
+	new THREE.MeshBasicMaterial({
+		map: renderTargetZ.texture,
+		side: THREE.DoubleSide,
+	}),
+);
+
+planeXMesh.lookAt(1, 0 ,0)
+planeYMesh.lookAt(0, 1 ,0)
+planeZMesh.lookAt(0, 0 ,1)
+planeXMesh.position.set(0.5, 0, 0)
+planeYMesh.position.set(0, 0.5, 0)
+planeYMesh.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2))
+planeZMesh.position.set(0, 0, 0.5)
+
+hologramScene.add(planeXMesh)
+hologramScene.add(planeYMesh)
+hologramScene.add(planeZMesh)
+
+
+
+
+
+
+
 
 function computeCameraMatrices ( ) {
 
@@ -207,6 +272,7 @@ function computeMatrix ( eye, screen, ss, scale = 1 ) {
 
 const gui = new GUI();
 const guiParams = {
+	fpv: false,
 	head: new THREE.Vector3(1, 1, 1),
 	translate: new THREE.Vector3(),
 	scale: new THREE.Vector3(1, 1, 1),
@@ -250,6 +316,9 @@ function updateView ( ) {
 	camera1.lookAt(target);
 	// camera1.lookAt()
 
+	cameraFPV.position.copy(sphere0.position);
+	cameraFPV.lookAt(0, 0, 0);
+
 	computeCameraMatrices();
 }
 
@@ -281,6 +350,7 @@ const headFolder = gui.addFolder("head");
 headFolder.add(guiParams.head, "x").min(-5.0).max(5.0).step(0.05).onChange(updateView);
 headFolder.add(guiParams.head, "y").min(-5.0).max(5.0).step(0.05).onChange(updateView);
 headFolder.add(guiParams.head, "z").min(-5.0).max(5.0).step(0.05).onChange(updateView);
+headFolder.add(guiParams, "fpv");
 
 const translateFolder = gui.addFolder("translate");
 translateFolder.add(guiParams.translate, "x").min(-5.0).max(5.0).step(0.01).onChange(updateView);
@@ -300,7 +370,19 @@ helpersFolder.add(guiParams, "helpers").name("show helpers");
 updateView();
 
 function animate() {
-	renderer.render( hologramScene, camera );
+	if(guiParams.fpv)
+		renderer.render( hologramScene, cameraFPV );
+	else 
+		renderer.render( hologramScene, camera );
+	
+	renderer.setRenderTarget(renderTargetX);
+	renderer.render( simulationScene, cameraX );
+	renderer.setRenderTarget(renderTargetY);
+	renderer.render( simulationScene, cameraY );
+	renderer.setRenderTarget(renderTargetZ);
+	renderer.render( simulationScene, cameraZ );
+	
+	renderer.setRenderTarget(null);
 }
 
 renderer.setAnimationLoop( animate );
@@ -374,6 +456,38 @@ const firstPersonSimulationWindow = new DisplayWindow(
 
 firstPersonSimulationWindow.open();
 
+// let renderer2;
+
+// const firstPersonHologramWindow = new DisplayWindow(
+// 	"first person hologram",
+// 	{
+// 		onLoad: ( window, canvas ) => {
+// 			renderer2 = new THREE.WebGLRenderer({canvas});
+
+// 			// const orbitControls = new OrbitControls(camera1, renderer1.domElement);
+
+
+// 			function animate() {
+// 				renderer2.render( hologramScene, camera1 );
+// 			}
+// 			// const gui = new GUI();
+			
+
+// 			renderer2.setAnimationLoop( animate );
+
+// 		},
+
+// 		onResize: ( width, height ) => {
+// 			camera2.aspect = width / height;
+// 			camera2.updateProjectionMatrix();
+
+// 			renderer2.setSize(width, height);
+// 		}
+// 	}
+// );
+
+// firstPersonHologramWindow.open();
+
 let rendererX;
 const cameraXWindow = new DisplayWindow(
 	"view X",
@@ -403,7 +517,7 @@ const cameraXWindow = new DisplayWindow(
 	}
 );
 
-cameraXWindow.open();
+// cameraXWindow.open();
 
 let rendererY;
 const cameraYWindow = new DisplayWindow(
@@ -434,7 +548,7 @@ const cameraYWindow = new DisplayWindow(
 	}
 );
 
-cameraYWindow.open();
+// cameraYWindow.open();
 
 
 let rendererZ;
@@ -466,7 +580,7 @@ const cameraZWindow = new DisplayWindow(
 	}
 );
 
-cameraZWindow.open();
+// cameraZWindow.open();
 
 updateView();
 
