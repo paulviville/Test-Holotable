@@ -297,7 +297,17 @@ function updateView ( ) {
 	const rotate = new THREE.Quaternion().setFromAxisAngle(guiParams.axis, guiParams.angle);
 
 	hologramBox.scale.copy(scale0);
+	planeXMesh.scale.set(scale0.z, scale0.y, scale0.x);
+	if(scale0.x <= 1)
+		planeXMesh.position.set(scale0.x * 0.5, 0, 0);
 
+	planeYMesh.scale.set(scale0.z, scale0.x, scale0.y);
+	if(scale0.y <= 1)
+		planeYMesh.position.set(0, scale0.y * 0.5, 0);
+
+	planeZMesh.scale.set(scale0.x, scale0.y, scale0.z);
+	if(scale0.z <= 1)
+		planeZMesh.position.set(0, 0, scale0.z * 0.5);
 
 	viewBox.position.copy(translate)
 	viewBox.scale.copy(scale)
